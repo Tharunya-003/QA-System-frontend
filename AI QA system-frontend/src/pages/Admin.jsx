@@ -16,11 +16,29 @@ export default function Admin() {
 
   return (
     <div>
-      <h1>Rubric (read-only)</h1>
-      <div className="summary-cards">
-        <div className="card"><div className="num">{rubric.principle_count}</div><div className="lbl">Principles</div></div>
-        <div className="card"><div className="num">{rubric.rule_count}</div><div className="lbl">Atomic rules</div></div>
-        <div className="card"><div className="num">v{rubric.version}</div><div className="lbl">Ruleset version</div></div>
+      <span className="meta-tag">STANDARDS · SYSTEM DEFINITIONS</span>
+      <h1 className="main-heading">
+        QUALITY ASSURANCE 
+        <span className="muted-heading">RUBRIC</span>
+      </h1>
+      
+      <div className="stats-grid">
+        <div className="stat-card">
+          <p className="stat-num">
+            {rubric.principle_count < 10 ? `0${rubric.principle_count}` : rubric.principle_count}
+          </p>
+          <span className="stat-lbl">Principles</span>
+        </div>
+        <div className="stat-card">
+          <p className="stat-num">
+            {rubric.rule_count < 10 ? `0${rubric.rule_count}` : rubric.rule_count}
+          </p>
+          <span className="stat-lbl">Atomic rules</span>
+        </div>
+        <div className="stat-card">
+          <p className="stat-num">v{rubric.version}</p>
+          <span className="stat-lbl">Ruleset version</span>
+        </div>
       </div>
 
       <div className="panel">

@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { uploadStoryboard, listReviews, deleteReview, saveGuideline } from '../api.js'
+import { useNavigate } from 'react-router-dom'
 
-const ACCEPT = ['.pptx', '.docx', '.xlsx']
+const SCORM_ACCEPT = ['.zip', '.pptx', '.docx']
 const MAX_SIZE = 50 * 1024 * 1024
 
 const ANALYZE_STEPS = [
-  'Parsing slides…',
-  'Extracting storyboard structure…',
-  'Checking alignment & layout…',
+  'Parsing SCORM package…',
+  'Extracting course structure…',
+  'Checking compliance standards…',
   'Scoring against rubric…',
   'Compiling report…',
 ]
@@ -25,7 +24,35 @@ function fmtDate(ts) {
   })
 }
 
-export default function Upload() {
+const SCORM_HISTORY_KEY = 'scorm_history'
+
+function listScormHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(SCORM_HISTORY_KEY) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveScormEntry(file) {
+  const history = listScormHistory()
+  const entry = {
+    id: `scorm_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    filename: file.name,
+    size: file.size,
+    uploadedAt: Date.now(),
+  }
+  history.unshift(entry)
+  localStorage.setItem(SCORM_HISTORY_KEY, JSON.stringify(history))
+  return entry
+}
+
+function deleteScormEntry(id) {
+  const history = listScormHistory().filter(e => e.id !== id)
+  localStorage.setItem(SCORM_HISTORY_KEY, JSON.stringify(history))
+}
+
+export default function Scorm() {
   const [file, setFile] = useState(null)
   const [drag, setDrag] = useState(false)
   const [guidelinesFile, setGuidelinesFile] = useState(null)
@@ -39,16 +66,15 @@ export default function Upload() {
   const guidelinesInputRef = useRef()
   const navigate = useNavigate()
 
-  useEffect(() => { setHistory(listReviews()) }, [])
+  useEffect(() => { setHistory(listScormHistory()) }, [])
 
-  function removeFromHistory(e, reviewId) {
+  function removeFromHistory(e, id) {
     e.preventDefault()
     e.stopPropagation()
-    deleteReview(reviewId)
-    setHistory(listReviews())
+    deleteScormEntry(id)
+    setHistory(listScormHistory())
   }
 
-  // Advance the analysis steps while we wait on the backend.
   useEffect(() => {
     if (!busy) return
     const id = setInterval(() => {
@@ -61,8 +87,8 @@ export default function Upload() {
     setError('')
     if (!f) return
     const ext = '.' + f.name.split('.').pop().toLowerCase()
-    if (!ACCEPT.includes(ext)) {
-      setError(`Unsupported format "${ext}". Upload a .pptx, .docx, or .xlsx file.`)
+    if (!SCORM_ACCEPT.includes(ext)) {
+      setError(`Unsupported format "${ext}". Upload a .zip, .pptx, or .docx file.`)
       return
     }
     if (f.size > MAX_SIZE) {
@@ -85,8 +111,6 @@ export default function Upload() {
       setError(`Guidelines file is too large (${fmtSize(f.size)}). Maximum size is 50 MB.`)
       return
     }
-    // Save to guidelines history index as soon as client selects the file
-    saveGuideline(f)
     setGuidelinesFile(f)
   }
 
@@ -94,9 +118,14 @@ export default function Upload() {
     if (!file) return
     setBusy(true); setError(''); setStep(0)
     try {
-      const { review_id } = await uploadStoryboard(file, guidelinesFile)
-      setStep(ANALYZE_STEPS.length - 1)
-      setTimeout(() => navigate(`/report/${review_id}`), 500)
+      // Save to local SCORM history
+      saveScormEntry(file)
+      // Simulate analysis delay (replace with real API call when backend is ready)
+      await new Promise(res => setTimeout(res, 3500))
+      setHistory(listScormHistory())
+      setBusy(false)
+      setFile(null)
+      setGuidelinesFile(null)
     } catch (e) {
       setError(e.message)
       setBusy(false)
@@ -105,28 +134,12 @@ export default function Upload() {
 
   const detectedFormat = file ? file.name.split('.').pop().toUpperCase() : null
 
-  // Calculate dynamic stats for the cards
-  const totalFiles = history.length
-  const totalFilesStr = totalFiles === 0 ? '00' : totalFiles < 10 ? `0${totalFiles}` : `${totalFiles}`
-  const totalMB = totalFiles === 0 ? '0.0' : (history.reduce((acc, h) => acc + (h.size || 0), 0) / (1024 * 1024)).toFixed(1)
-  
-  function getLatestActivity() {
-    if (history.length === 0) return '—'
-    const diffMs = Date.now() - history[0].uploadedAt
-    const diffMins = Math.floor(diffMs / 60000)
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m`
-    const diffHrs = Math.floor(diffMins / 60)
-    if (diffHrs < 24) return `${diffHrs}h`
-    return `${Math.floor(diffHrs / 24)}d`
-  }
-
   if (busy) {
     return (
       <div className="up-shell">
         <div className="up-card up-analyzing">
           <div className="up-spinner" />
-          <h1>Analyzing your storyboard</h1>
+          <h1>Analyzing your SCORM package</h1>
           <p className="up-sub">{file?.name}</p>
           <ul className="up-steps">
             {ANALYZE_STEPS.map((label, i) => (
@@ -146,14 +159,17 @@ export default function Upload() {
       {/* Upload Form Card */}
       <div className="up-card">
         <div className="up-head">
-          <h1>Upload a storyboard</h1>
-          <p className="up-sub">PowerPoint (.pptx) is the primary format. Custom guidelines (.pdf, .docx, .txt) can be optionally uploaded to run a tailored compliance review.</p>
+          <h1>Upload a SCORM package</h1>
+          <p className="up-sub">
+            ZIP (.zip) is the primary SCORM format. PowerPoint (.pptx) and Word (.docx) are also accepted.
+            Custom guidelines (.pdf, .docx, .txt) can be optionally uploaded for a tailored compliance review.
+          </p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginTop: '16px' }}>
-          {/* Column 1: Storyboard (Required) */}
+          {/* Column 1: SCORM File (Required) */}
           <div>
-            <span className="meta-tag" style={{ marginBottom: '12px' }}>Storyboard File (Required)</span>
+            <span className="meta-tag" style={{ marginBottom: '12px' }}>SCORM File (Required)</span>
             <div
               className={`up-drop ${drag ? 'drag' : ''}`}
               onClick={() => inputRef.current?.click()}
@@ -163,19 +179,20 @@ export default function Upload() {
               style={{ minHeight: '200px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
             >
               <div className="up-drop-icon">
+                {/* SCORM / package icon */}
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
                 </svg>
               </div>
-              <h2 style={{ fontSize: '15px', marginBottom: '8px' }}>Drag storyboard here</h2>
+              <h2 style={{ fontSize: '15px', marginBottom: '8px' }}>Drag SCORM package here</h2>
               <div className="up-or" style={{ margin: '8px auto' }}><span>OR</span></div>
               <button type="button" className="up-browse" style={{ padding: '6px 16px', fontSize: '11px' }} onClick={(e) => { e.stopPropagation(); inputRef.current?.click() }}>
                 Browse files
               </button>
               <input
-                ref={inputRef} type="file" accept={ACCEPT.join(',')} hidden
+                ref={inputRef} type="file" accept={SCORM_ACCEPT.join(',')} hidden
                 onChange={(e) => pick(e.target.files[0])}
               />
             </div>
@@ -243,55 +260,48 @@ export default function Upload() {
 
         {file && (
           <button className="up-submit" onClick={submit}>
-            <span>✓</span> Run {guidelinesFile ? 'Guidelines Audit' : 'QA Analyzer'}
+            <span>✓</span> Run {guidelinesFile ? 'Guidelines Audit' : 'SCORM QA Analyzer'}
           </button>
         )}
 
         {error && <div className="up-error">{error}</div>}
       </div>
 
-      {/* Previous Uploads Section modeled after a vertical line-by-line queue */}
+      {/* SCORM History */}
       {history.length > 0 && (
         <div style={{ marginTop: '48px' }}>
           <div className="section-header">
-            <h2>Your Storyboards</h2>
+            <h2>Your SCORM Packages</h2>
           </div>
-          
+
           <ul className="up-history-list">
             {history.map((r) => (
-              <li key={r.review_id}>
-                <Link to={`/report/${r.review_id}`} className="up-history-row">
+              <li key={r.id}>
+                <div className="up-history-row">
                   <div className="up-row-left">
                     <span className="chip" style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, marginRight: '16px' }}>
                       {r.filename.split('.').pop()}
                     </span>
-                    <h3 className="up-row-title" style={{ margin: 0, fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-serif)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 className="up-row-title" style={{ margin: 0, fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-serif)' }}>
                       {r.filename}
-                      {r.pinned && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--border-focus)' }} title="Pinned storyboard">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                          <circle cx="12" cy="10" r="3" />
-                        </svg>
-                      )}
                     </h3>
                   </div>
-                  
+
                   <div className="up-row-meta" style={{ fontSize: '12px', color: 'var(--muted)' }}>
                     {fmtSize(r.size)} · {fmtDate(r.uploadedAt)}
                   </div>
-                  
+
                   <div className="up-row-right">
-                    <span className="up-view">View report →</span>
-                    <button 
-                      className="up-remove" 
-                      title="Delete Storyboard"
-                      onClick={(e) => removeFromHistory(e, r.review_id)}
+                    <button
+                      className="up-remove"
+                      title="Delete SCORM entry"
+                      onClick={(e) => removeFromHistory(e, r.id)}
                       style={{ flexShrink: 0 }}
                     >
                       ✕
                     </button>
                   </div>
-                </Link>
+                </div>
               </li>
             ))}
           </ul>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { uploadStoryboard, listReviews, deleteReview, saveGuideline } from '../api.js'
+import { uploadStoryboard, listReviews, deleteReview, saveGuideline, listGuidelines } from '../api.js'
 
 const ACCEPT = ['.pptx', '.docx', '.xlsx']
 const MAX_SIZE = 50 * 1024 * 1024
@@ -34,12 +34,19 @@ export default function Upload() {
   const [error, setError] = useState('')
   const [step, setStep] = useState(0)
   const [history, setHistory] = useState([])
+  const [guidelines, setGuidelines] = useState([])
+  const [scormHistory, setScormHistory] = useState([])
+  const [historyTab, setHistoryTab] = useState('storyboards')
 
   const inputRef = useRef()
   const guidelinesInputRef = useRef()
   const navigate = useNavigate()
 
-  useEffect(() => { setHistory(listReviews()) }, [])
+  useEffect(() => {
+    setHistory(listReviews())
+    setGuidelines(listGuidelines())
+    try { setScormHistory(JSON.parse(localStorage.getItem('scorm_history') || '[]')) } catch { setScormHistory([]) }
+  }, [])
 
   function removeFromHistory(e, reviewId) {
     e.preventDefault()
@@ -142,104 +149,101 @@ export default function Upload() {
   }
 
   return (
-    <div className="up-shell">
-      {/* Upload Form Card */}
+    <div className="sb-grid">
+      {/* LEFT — Execution engine (upload) */}
+      <section className="sb-left">
       <div className="up-card">
         <div className="up-head">
           <h1>Upload a storyboard</h1>
           <p className="up-sub">PowerPoint (.pptx) is the primary format. Custom guidelines (.pdf, .docx, .txt) can be optionally uploaded to run a tailored compliance review.</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginTop: '16px' }}>
-          {/* Column 1: Storyboard (Required) */}
-          <div>
-            <span className="meta-tag" style={{ marginBottom: '12px' }}>Storyboard File (Required)</span>
-            <div
-              className={`up-drop ${drag ? 'drag' : ''}`}
-              onClick={() => inputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
-              onDragLeave={() => setDrag(false)}
-              onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files[0]) }}
-              style={{ minHeight: '200px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
-            >
-              <div className="up-drop-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-              </div>
-              <h2 style={{ fontSize: '15px', marginBottom: '8px' }}>Drag storyboard here</h2>
-              <div className="up-or" style={{ margin: '8px auto' }}><span>OR</span></div>
-              <button type="button" className="up-browse" style={{ padding: '6px 16px', fontSize: '11px' }} onClick={(e) => { e.stopPropagation(); inputRef.current?.click() }}>
-                Browse files
-              </button>
-              <input
-                ref={inputRef} type="file" accept={ACCEPT.join(',')} hidden
-                onChange={(e) => pick(e.target.files[0])}
-              />
-            </div>
-
-            {file && (
-              <div className="up-file" style={{ marginTop: '16px' }}>
-                <div className="up-file-badge">{detectedFormat}</div>
-                <div className="up-file-meta">
-                  <div className="up-file-name">{file.name}</div>
-                  <div className="up-sub">{fmtSize(file.size)}</div>
-                </div>
-                <button className="up-remove" title="Remove file"
-                  onClick={() => { setFile(null); setError('') }}>
-                  ✕
-                </button>
-              </div>
-            )}
+        {/* Primary dropzone: storyboard */}
+        <span className="meta-tag" style={{ display: 'block', marginBottom: '12px' }}>Storyboard File (Required)</span>
+        <div
+          className={`up-drop ${drag ? 'drag' : ''}`}
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files[0]) }}
+          style={{ minHeight: '240px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+        >
+          <div className="up-drop-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
           </div>
-
-          {/* Column 2: Custom Guidelines (Optional) */}
-          <div>
-            <span className="meta-tag" style={{ marginBottom: '12px' }}>Custom Guidelines (Optional)</span>
-            <div
-              className={`up-drop ${guidelinesDrag ? 'drag' : ''}`}
-              onClick={() => guidelinesInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setGuidelinesDrag(true) }}
-              onDragLeave={() => setGuidelinesDrag(false)}
-              onDrop={(e) => { e.preventDefault(); setGuidelinesDrag(false); pickGuidelines(e.dataTransfer.files[0]) }}
-              style={{ minHeight: '200px', display: 'flex', flexDirection: 'column', justifyContent: 'center', borderColor: guidelinesFile ? 'var(--border-focus)' : 'var(--border)' }}
-            >
-              <div className="up-drop-icon" style={{ color: guidelinesFile ? 'var(--text)' : 'var(--muted)' }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-              </div>
-              <h2 style={{ fontSize: '15px', marginBottom: '8px' }}>Drag guidelines here</h2>
-              <div className="up-or" style={{ margin: '8px auto' }}><span>OR</span></div>
-              <button type="button" className="up-browse" style={{ padding: '6px 16px', fontSize: '11px' }} onClick={(e) => { e.stopPropagation(); guidelinesInputRef.current?.click() }}>
-                Browse guidelines
-              </button>
-              <input
-                ref={guidelinesInputRef} type="file" accept=".pdf,.docx,.txt,.doc" hidden
-                onChange={(e) => pickGuidelines(e.target.files[0])}
-              />
-            </div>
-
-            {guidelinesFile && (
-              <div className="up-file" style={{ marginTop: '16px' }}>
-                <div className="up-file-badge" style={{ background: '#1c1c1c', border: '1px solid var(--border)', color: 'var(--text)' }}>
-                  {guidelinesFile.name.split('.').pop().toUpperCase()}
-                </div>
-                <div className="up-file-meta">
-                  <div className="up-file-name">{guidelinesFile.name}</div>
-                  <div className="up-sub">{fmtSize(guidelinesFile.size)}</div>
-                </div>
-                <button className="up-remove" title="Remove guidelines"
-                  onClick={() => setGuidelinesFile(null)}>
-                  ✕
-                </button>
-              </div>
-            )}
-          </div>
+          <h2 style={{ fontSize: '15px', marginBottom: '8px' }}>Drag storyboard here</h2>
+          <div className="up-or" style={{ margin: '8px auto' }}><span>OR</span></div>
+          <button type="button" className="up-browse" style={{ padding: '6px 16px', fontSize: '11px' }} onClick={(e) => { e.stopPropagation(); inputRef.current?.click() }}>
+            Browse files
+          </button>
+          <input
+            ref={inputRef} type="file" accept={ACCEPT.join(',')} hidden
+            onChange={(e) => pick(e.target.files[0])}
+          />
         </div>
+
+        {file && (
+          <div className="up-file" style={{ marginTop: '16px' }}>
+            <div className="up-file-badge">{detectedFormat}</div>
+            <div className="up-file-meta">
+              <div className="up-file-name">{file.name}</div>
+              <div className="up-sub">{fmtSize(file.size)}</div>
+            </div>
+            <button className="up-remove" title="Remove file"
+              onClick={() => { setFile(null); setError('') }}>
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Secondary condensed action: custom guidelines */}
+        <div
+          className={`sb-guidelines ${guidelinesDrag ? 'drag' : ''} ${guidelinesFile ? 'has-file' : ''}`}
+          onClick={() => guidelinesInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setGuidelinesDrag(true) }}
+          onDragLeave={() => setGuidelinesDrag(false)}
+          onDrop={(e) => { e.preventDefault(); setGuidelinesDrag(false); pickGuidelines(e.dataTransfer.files[0]) }}
+        >
+          <div className="sb-guidelines-main">
+            <div className="up-drop-icon" style={{ margin: 0, color: guidelinesFile ? 'var(--text)' : 'var(--muted)' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="sb-guidelines-title">Custom Guidelines <span>(Optional)</span></div>
+              <div className="up-sub" style={{ margin: 0 }}>.pdf, .docx, .txt — drop here or browse to run a tailored compliance review.</div>
+            </div>
+          </div>
+          <button type="button" className="up-browse" style={{ padding: '6px 16px', fontSize: '11px', flexShrink: 0 }} onClick={(e) => { e.stopPropagation(); guidelinesInputRef.current?.click() }}>
+            Browse
+          </button>
+          <input
+            ref={guidelinesInputRef} type="file" accept=".pdf,.docx,.txt,.doc" hidden
+            onChange={(e) => pickGuidelines(e.target.files[0])}
+          />
+        </div>
+
+        {guidelinesFile && (
+          <div className="up-file" style={{ marginTop: '12px' }}>
+            <div className="up-file-badge" style={{ background: '#1c1c1c', border: '1px solid var(--border)', color: 'var(--text)' }}>
+              {guidelinesFile.name.split('.').pop().toUpperCase()}
+            </div>
+            <div className="up-file-meta">
+              <div className="up-file-name">{guidelinesFile.name}</div>
+              <div className="up-sub">{fmtSize(guidelinesFile.size)}</div>
+            </div>
+            <button className="up-remove" title="Remove guidelines"
+              onClick={() => setGuidelinesFile(null)}>
+              ✕
+            </button>
+          </div>
+        )}
 
         {file && (
           <button className="up-submit" onClick={submit}>
@@ -249,54 +253,112 @@ export default function Upload() {
 
         {error && <div className="up-error">{error}</div>}
       </div>
+      </section>
 
-      {/* Previous Uploads Section modeled after a vertical line-by-line queue */}
-      {history.length > 0 && (
-        <div style={{ marginTop: '48px' }}>
-          <div className="section-header">
-            <h2>Your Storyboards</h2>
-          </div>
-          
-          <ul className="up-history-list">
-            {history.map((r) => (
-              <li key={r.review_id}>
-                <Link to={`/report/${r.review_id}`} className="up-history-row">
-                  <div className="up-row-left">
-                    <span className="chip" style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, marginRight: '16px' }}>
-                      {r.filename.split('.').pop()}
-                    </span>
-                    <h3 className="up-row-title" style={{ margin: 0, fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-serif)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {r.filename}
-                      {r.pinned && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--border-focus)' }} title="Pinned storyboard">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                          <circle cx="12" cy="10" r="3" />
-                        </svg>
-                      )}
-                    </h3>
-                  </div>
-                  
-                  <div className="up-row-meta" style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                    {fmtSize(r.size)} · {fmtDate(r.uploadedAt)}
-                  </div>
-                  
-                  <div className="up-row-right">
-                    <span className="up-view">View report →</span>
-                    <button 
-                      className="up-remove" 
-                      title="Delete Storyboard"
-                      onClick={(e) => removeFromHistory(e, r.review_id)}
-                      style={{ flexShrink: 0 }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+      {/* RIGHT — Persistent history sidebar */}
+      <aside className="sb-right">
+        <div className="sb-history">
+        <div className="section-header">
+          <h2>History</h2>
         </div>
-      )}
+
+        <div className="sidebar-tabs" style={{ marginBottom: '16px' }}>
+          <button className={`sidebar-tab ${historyTab === 'storyboards' ? 'active' : ''}`} onClick={() => setHistoryTab('storyboards')}>Storyboards</button>
+          <button className={`sidebar-tab ${historyTab === 'scorm' ? 'active' : ''}`} onClick={() => setHistoryTab('scorm')}>Scorm</button>
+          <button className={`sidebar-tab ${historyTab === 'guidelines' ? 'active' : ''}`} onClick={() => { setHistoryTab('guidelines'); setGuidelines(listGuidelines()) }}>Guidelines</button>
+        </div>
+
+        <div className="sb-history-scroll">
+        {/* Storyboards */}
+        {historyTab === 'storyboards' && (
+          history.length === 0 ? (
+            <p className="up-sub">No audited storyboards yet.</p>
+          ) : (
+            <ul className="up-history-list">
+              {history.map((r) => (
+                <li key={r.review_id}>
+                  <Link to={`/report/${r.review_id}`} className="up-history-row">
+                    <div className="up-row-left">
+                      <span className="chip" style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, marginRight: '16px' }}>
+                        {r.filename.split('.').pop()}
+                      </span>
+                      <h3 className="up-row-title" style={{ margin: 0, fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-serif)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {r.filename}
+                        {r.pinned && (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--border-focus)' }}>
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                            <circle cx="12" cy="10" r="3" />
+                          </svg>
+                        )}
+                      </h3>
+                    </div>
+                    <div className="up-row-meta" style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                      {fmtSize(r.size)} · {fmtDate(r.uploadedAt)}
+                    </div>
+                    <div className="up-row-right">
+                      <span className="up-view">View report →</span>
+                      <button className="up-remove" title="Delete storyboard"
+                        onClick={(e) => removeFromHistory(e, r.review_id)} style={{ flexShrink: 0 }}>
+                        ✕
+                      </button>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+
+        {/* Scorm */}
+        {historyTab === 'scorm' && (
+          scormHistory.length === 0 ? (
+            <p className="up-sub">No SCORM packages uploaded yet.</p>
+          ) : (
+            <ul className="up-history-list">
+              {scormHistory.map((r) => (
+                <li key={r.id || r.filename}>
+                  <div className="up-history-row" style={{ cursor: 'default' }}>
+                    <div className="up-row-left">
+                      <span className="chip" style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, marginRight: '16px' }}>ZIP</span>
+                      <h3 className="up-row-title" style={{ margin: 0, fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-serif)' }}>{r.filename}</h3>
+                    </div>
+                    <div className="up-row-meta" style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                      {r.size ? `${(r.size / 1024).toFixed(1)} KB · ` : ''}{fmtDate(r.uploadedAt)}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+
+        {/* Guidelines */}
+        {historyTab === 'guidelines' && (
+          guidelines.length === 0 ? (
+            <p className="up-sub">No guidelines uploaded yet.</p>
+          ) : (
+            <ul className="up-history-list">
+              {guidelines.map((g) => (
+                <li key={g.name + g.uploadedAt}>
+                  <div className="up-history-row" style={{ cursor: 'default' }}>
+                    <div className="up-row-left">
+                      <span className="chip" style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, marginRight: '16px' }}>
+                        {g.name.split('.').pop()}
+                      </span>
+                      <h3 className="up-row-title" style={{ margin: 0, fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-serif)' }}>{g.name}</h3>
+                    </div>
+                    <div className="up-row-meta" style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                      {g.size ? `${(g.size / 1024).toFixed(1)} KB · ` : ''}{fmtDate(g.uploadedAt)}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+        </div>
+        </div>
+      </aside>
     </div>
   )
 }

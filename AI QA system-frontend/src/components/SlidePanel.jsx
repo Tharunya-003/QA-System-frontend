@@ -31,8 +31,20 @@ export default function SlidePanel({ findings, slidesById }) {
     return <div className="panel"><p className="muted">No findings for this selection. 🎉</p></div>
   }
   const groups = groupBySlide(findings)
+
+  const sev = { blocker: 0, major: 0, minor: 0, suggestion: 0 }
+  for (const f of findings) if (sev[f.severity] !== undefined) sev[f.severity]++
+
   return (
     <div className="findings-feed">
+      {/* Stats bar — quick metrics for the current view */}
+      <div className="findings-stats stat-bar">
+        <div className="stat-box"><div className="stat-num">{findings.length}</div><div className="stat-lbl">Total</div></div>
+        <div className="stat-box"><div className="stat-num">{sev.blocker}</div><div className="stat-lbl">Blockers</div></div>
+        <div className="stat-box"><div className="stat-num">{sev.major}</div><div className="stat-lbl">Major</div></div>
+        <div className="stat-box"><div className="stat-num">{sev.minor}</div><div className="stat-lbl">Minor</div></div>
+      </div>
+
       {groups.map(([key, list]) => {
         const slide = slidesById?.[key]
         return (
@@ -42,7 +54,9 @@ export default function SlidePanel({ findings, slidesById }) {
               {slide?.title && <span className="muted"> — {slide.title}</span>}
               {slide?.role && <span className="muted"> ({slide.role})</span>}
             </h4>
-            {list.map((f) => <FindingCard key={f.finding_id} finding={f} />)}
+            <div className="findings-grid">
+              {list.map((f) => <FindingCard key={f.finding_id} finding={f} />)}
+            </div>
           </div>
         )
       })}

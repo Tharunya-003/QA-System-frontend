@@ -1,9 +1,31 @@
-function ChipList({ ids }) {
-  if (!ids || !ids.length) return <span className="cell-no">✗ none</span>
+const IconCheck = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+)
+const IconX = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M18 6 6 18M6 6l12 12" />
+  </svg>
+)
+const IconDoc = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <path d="M14 2v6h6" />
+  </svg>
+)
+
+function StatusCell({ covered, yes = 'covered', no = 'none' }) {
   return (
-    <span className="chiplist">
-      {ids.map((id) => <span className="chip" key={id}>{id}</span>)}
-    </span>
+    <td className={`status-cell ${covered ? 'ok' : 'gap'}`}>
+      <span className="status-pill">
+        {covered ? <IconCheck /> : <IconX />}
+        {covered ? yes : no}
+      </span>
+    </td>
   )
 }
 
@@ -14,37 +36,55 @@ export default function AlignmentMatrix({ matrix }) {
   return (
     <div className="panel">
       <h3>Learning Objective Alignment Matrix</h3>
-      <p className="muted" style={{ marginTop: -6 }}>
+      <p className="muted matrix-sub">
         Coverage of each objective across content, knowledge checks, assessment, and summary.
-        Red cells mark gaps.
       </p>
-      <div style={{ overflowX: 'auto' }}>
+
+      <div className="matrix-wrap">
         <table className="matrix">
           <thead>
             <tr>
-              <th>LO</th>
-              <th>Objective</th>
-              <th>Bloom</th>
-              <th>Content</th>
-              <th>Knowledge&nbsp;Checks</th>
-              <th>Assessment</th>
-              <th>Summary</th>
+              <th className="col-lo">LO</th>
+              <th className="col-obj">Objective</th>
+              <th className="ctr">Bloom</th>
+              <th className="ctr">Content</th>
+              <th className="ctr">Knowledge Checks</th>
+              <th className="ctr">Assessment</th>
+              <th className="ctr">Summary</th>
             </tr>
           </thead>
           <tbody>
             {matrix.map((row) => (
               <tr key={row.lo_id}>
-                <td><strong>{row.lo_id}</strong></td>
-                <td>{row.lo_text}</td>
-                <td>{row.bloom_level ? <span className="bloom">{row.bloom_level}</span> : <span className="cell-no">✗</span>}</td>
-                <td><ChipList ids={row.content_slides} /></td>
-                <td><ChipList ids={row.kc_slides} /></td>
-                <td><ChipList ids={row.assessment_slides} /></td>
-                <td>{row.summary_covered ? <span className="cell-yes">✓ covered</span> : <span className="cell-no">✗ missing</span>}</td>
+                <td className="cell-lo">{row.lo_id}</td>
+                <td className="cell-obj">{row.lo_text}</td>
+                <td className="ctr">
+                  {row.bloom_level
+                    ? <span className="bloom-pill">{row.bloom_level}</span>
+                    : <span className="dash">—</span>}
+                </td>
+                <td className="ctr">
+                  <span className="content-count"><IconDoc /> {(row.content_slides || []).length}</span>
+                </td>
+                <StatusCell covered={(row.kc_slides || []).length > 0} />
+                <StatusCell covered={(row.assessment_slides || []).length > 0} />
+                <StatusCell covered={!!row.summary_covered} />
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="matrix-legend">
+        <span className="legend-item">
+          <span className="legend-swatch ok"><IconCheck /></span> Fully covered
+        </span>
+        <span className="legend-item">
+          <span className="legend-swatch gap"><IconX /></span> Gap identified
+        </span>
+        <span className="legend-item">
+          <span className="legend-swatch accent"><IconDoc /></span> Coverage count
+        </span>
       </div>
     </div>
   )

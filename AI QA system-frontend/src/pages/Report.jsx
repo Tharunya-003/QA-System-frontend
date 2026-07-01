@@ -5,6 +5,7 @@ import Scorecard from '../components/Scorecard.jsx'
 import SlidePanel from '../components/SlidePanel.jsx'
 import AlignmentMatrix from '../components/AlignmentMatrix.jsx'
 import ParseWarnings from '../components/ParseWarnings.jsx'
+import PreviewPanel from '../components/PreviewPanel.jsx'
 
 export default function Report() {
   const { reviewId } = useParams()
@@ -72,36 +73,11 @@ export default function Report() {
   return (
     <div>
       <div className="report-head">
-        <span className="meta-tag">AUDIT REPORT · SYSTEM REVIEW</span>
         <div className="report-title">
-          <h1 className="main-heading" style={{ fontSize: '36px', marginBottom: 0 }}>
-            {cm.title || report.filename || 'Report'}
-          </h1>
+          <h1>{cm.title || report.filename || 'Report'}</h1>
           <Link className="btn ghost" to="/">Upload another</Link>
         </div>
-        <div className="statusbar">
-          <span className="meta-file">{report.filename}</span>
-          <span className="meta-item"><b>{slideCount}</b> slides</span>
-          <span className="meta-item"><b>{objCount}</b> objectives</span>
-          <span className="meta-item"><b>{report.findings.length}</b> findings</span>
-        </div>
       </div>
-
-      {report.guidelines_name && (
-        <div className="warnbanner" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'var(--border-focus)' }}>
-          <h4 style={{ color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pass)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            Custom Guidelines Applied
-          </h4>
-          <ul style={{ listStyle: 'none', paddingLeft: 0, margin: 0 }}>
-            <li style={{ fontSize: '13px', color: 'var(--muted)' }}>
-              This storyboard was audited against the custom rules specified in: <strong>{report.guidelines_name}</strong>. Default system constraints were bypassed.
-            </li>
-          </ul>
-        </div>
-      )}
 
       <ParseWarnings parseReport={report.parse_report} />
 
@@ -114,6 +90,9 @@ export default function Report() {
         </button>
         <button className={tab === 'matrix' ? 'active' : ''} onClick={() => setTab('matrix')}>
           Alignment Matrix
+        </button>
+        <button className={tab === 'preview' ? 'active' : ''} onClick={() => setTab('preview')}>
+          Preview
         </button>
       </div>
 
@@ -138,6 +117,8 @@ export default function Report() {
       )}
 
       {tab === 'matrix' && <AlignmentMatrix matrix={report.alignment_matrix} />}
+
+      {tab === 'preview' && <PreviewPanel report={report} />}
     </div>
   )
 }

@@ -122,8 +122,21 @@ export async function getReport(reviewId) {
   return data ? JSON.parse(data) : baseMockReport;
 }
 
+const FINDING_STATE_KEY = 'findingState';
+
+export function getFindingOverride(findingId) {
+  try {
+    const map = JSON.parse(localStorage.getItem(FINDING_STATE_KEY) || '{}');
+    return map[findingId] || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function updateFinding(findingId, payload) {
-  console.log("Mock update finding:", findingId, payload);
+  const map = JSON.parse(localStorage.getItem(FINDING_STATE_KEY) || '{}');
+  map[findingId] = { ...(map[findingId] || {}), ...payload };
+  localStorage.setItem(FINDING_STATE_KEY, JSON.stringify(map));
   return { success: true };
 }
 

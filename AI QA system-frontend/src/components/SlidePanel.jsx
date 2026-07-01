@@ -32,14 +32,13 @@ export default function SlidePanel({ findings, slidesById }) {
   }
   const groups = groupBySlide(findings)
   return (
-    <div className="panel">
-      <h3>Findings ({findings.length})</h3>
+    <div className="findings-feed">
       {groups.map(([key, list]) => {
         const slide = slidesById?.[key]
         return (
           <div className="slide-group" key={key}>
             <h4>
-              {label(key)}
+              <span className="slide-no">{label(key)}</span>
               {slide?.title && <span className="muted"> — {slide.title}</span>}
               {slide?.role && <span className="muted"> ({slide.role})</span>}
             </h4>
